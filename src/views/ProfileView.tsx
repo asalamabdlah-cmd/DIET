@@ -4,14 +4,15 @@
  */
 
 import { motion } from "motion/react";
-import { User, Edit3, Ruler, Scale, Activity, Heart, Flame, Utensils } from "lucide-react";
+import { User, Edit3, Ruler, Scale, Activity, Heart, Flame, Utensils, LogOut } from "lucide-react";
 import type { UserProfile } from "../types";
 
 interface ProfileViewProps {
   profile: UserProfile;
+  onSignOut: () => void;
 }
 
-export default function ProfileView({ profile }: ProfileViewProps) {
+export default function ProfileView({ profile, onSignOut }: ProfileViewProps) {
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }}
@@ -21,12 +22,9 @@ export default function ProfileView({ profile }: ProfileViewProps) {
       {/* Header Profile Section */}
       <section className="flex flex-col items-center mb-12">
         <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full bg-white soft-shadow mb-6 overflow-hidden border-4 border-surface ring-4 ring-primary/5">
-          <img 
-            alt={profile.name}
-            className="w-full h-full object-cover" 
-            src={`https://lh3.googleusercontent.com/aida-public/AB6AXuA85KAHogN4OzOs09W8Yg-SiUN7EBPCfRnoQhmXCFJsexc__FQ655ddrJe0aWwrvxpNf05b6W021bgTsz_pfB03mwoByK_YeUMBZPV2tGvSJLrm__-dafIlZcRN37qetQ_cFqblFqOdapARYjzf3jJTWVlE8zxmNEmqeJZp0sJM72ns5GfXl_H2giaifzDanvZg6cDui_fIO8n-ZKuacEeJ4c3THtEm-llcUOI-pwqgMycre-YylnElWH8ESByoREbkNYAc6hW_qwU`}
-            referrerPolicy="no-referrer"
-          />
+          <div className="w-full h-full bg-primary-container flex items-center justify-center">
+            <span className="text-5xl font-bold text-primary">{profile.name.charAt(0).toUpperCase()}</span>
+          </div>
         </div>
         <h1 className="text-3xl font-bold text-on-surface mb-2">{profile.name}</h1>
         <p className="text-on-surface-variant font-medium">开启轻盈每一天</p>
@@ -131,6 +129,15 @@ export default function ProfileView({ profile }: ProfileViewProps) {
             </div>
           </div>
         </div>
+
+        {/* Sign Out */}
+        <button
+          onClick={onSignOut}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-red-200 text-red-500 hover:bg-red-50 transition-colors font-medium"
+        >
+          <LogOut size={18} />
+          退出登录
+        </button>
       </div>
     </motion.div>
   );

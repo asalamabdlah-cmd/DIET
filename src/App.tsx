@@ -5,44 +5,41 @@ import DietView from './views/DietView';
 import ExerciseView from './views/ExerciseView';
 import WeightView from './views/WeightView';
 import ProfileView from './views/ProfileView';
-import { ActivityLevel, type UserProfile, type DietRecord, type ExerciseRecord, type WeightRecord } from './types.ts';
-import { Leaf, User } from 'lucide-react';
+import LoginView from './views/LoginView';
+import { useAuth } from './contexts/AuthContext';
+import { ActivityLevel, type UserProfile, type DietRecord, type ExerciseRecord, type WeightRecord } from './types';
+import { Leaf, LogOut } from 'lucide-react';
 
 export default function App() {
+  const { user, loading, signOut } = useAuth();
   const [activeView, setActiveView] = useState('home');
-  
-  // Initial Mock State
+
   const [profile, setProfile] = useState<UserProfile>({
-    name: "美娟",
-    age: 48,
-    height: 160,
-    currentWeight: 65.5,
-    targetWeight: 60.0,
-    currentBodyFat: 32,
-    targetBodyFat: 28,
+    name: user?.email?.split('@')[0] || '用户',
+    age: 30,
+    height: 165,
+    currentWeight: 65,
+    targetWeight: 58,
+    currentBodyFat: 28,
+    targetBodyFat: 24,
     activityLevel: ActivityLevel.MODERATE,
-    bmr: 1350,
-    recommendedIntake: 1450,
+    bmr: 1400,
+    recommendedIntake: 1500,
   });
 
-  const [dietRecords, setDietRecords] = useState<DietRecord[]>([
-    { id: '1', name: '一碗燕麦片', calories: 200, carbs: 30, protein: 5, fat: 3, type: 'breakfast', time: new Date() },
-    { id: '2', name: '半碗米饭 + 炒青菜', calories: 350, carbs: 45, protein: 8, fat: 12, type: 'lunch', time: new Date() },
-  ]);
+  // Sync user name when email changes
+  useEffect(() => {
+    if (user?.email) {
+      setProfile(prev => ({
+        ...prev,
+        name: user.email!.split('@')[0],
+      }));
+    }
+  }, [user?.email]);
 
-  const [exerciseRecords, setExerciseRecords] = useState<ExerciseRecord[]>([
-    { id: '1', name: '散步', duration: 60, caloriesBurned: 150, time: new Date() },
-    { id: '2', name: '广场舞', duration: 40, caloriesBurned: 200, time: new Date() },
-  ]);
-
-  const [weightRecords, setWeightRecords] = useState<WeightRecord[]>([
-    { id: '1', date: '2024-05-10', weight: 66.5 },
-    { id: '2', date: '2024-05-11', weight: 66.2 },
-    { id: '3', date: '2024-05-12', weight: 66.0 },
-    { id: '4', date: '2024-05-13', weight: 65.8 },
-    { id: '5', date: '2024-05-14', weight: 65.9 },
-    { id: '6', date: '2024-05-15', weight: 65.5 },
-  ]);
+  const [dietRecords, setDietRecords] = useState<DietRecord[]>([]);
+  const [exerciseRecords, setExerciseRecords] = useState<ExerciseRecord[]>([]);
+  const [weightRecords, setWeightRecords] = useState<WeightRecord[]>([]);
 
   const addDietRecord = (record: Omit<DietRecord, 'id' | 'time'>) => {
     const newRecord: DietRecord = {
@@ -72,6 +69,24 @@ export default function App() {
     setProfile(prev => ({ ...prev, currentWeight: weight }));
   };
 
+  // Auth loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-sm text-on-surface-variant">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Not logged in — show login
+  if (!user) {
+    return <LoginView />;
+  }
+
+  // Logged in — show app
   const renderView = () => {
     switch (activeView) {
       case 'home':
@@ -83,7 +98,7 @@ export default function App() {
       case 'weight':
         return <WeightView profile={profile} records={weightRecords} onAddRecord={updateWeight} />;
       case 'profile':
-        return <ProfileView profile={profile} />;
+        return <ProfileView profile={profile} onSignOut={signOut} />;
       default:
         return <HomeView profile={profile} dietRecords={dietRecords} exerciseRecords={exerciseRecords} onNavigate={setActiveView} />;
     }
@@ -107,18 +122,26 @@ export default function App() {
               </div>
               <h1 className="text-xl font-bold text-primary tracking-tight">轻盈助手</h1>
             </div>
-            
-            <button 
-              onClick={() => setActiveView('profile')}
-              className="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden border-2 border-white shadow-sm hover:ring-2 ring-primary/20 transition-all active:scale-95"
-            >
-              <img 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsshs-FGkJqrAcnhqLpr_7fK3ikOr4XNgdffQ5nq_3F3UU71Sf2w2_QUmDPQTgQ5LRH0qhfAPnk8kKO3qmKfBL2nazSkdLsHknsa0FsuNMM6_viPYrmbNvddp7Xt_KeHlEJkBa0y3X-ThikmBiA57QzFTegv_5XS6um8Ko0USnf8MSF9t8DB1FvxJ-5GVAkGwIddqddOV3AcBnlYTyooM4aDsKtLPUmbGfNfMqG1C0uxjeFgMvdp0A5ZXHySqsKYwHbHQFEpnqcm0" 
-                alt="Avatar"
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-            </button>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={signOut}
+                className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-red-500 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50"
+                title="退出登录"
+              >
+                <LogOut size={14} />
+                <span className="hidden sm:inline">退出</span>
+              </button>
+
+              <button
+                onClick={() => setActiveView('profile')}
+                className="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden border-2 border-white shadow-sm hover:ring-2 ring-primary/20 transition-all active:scale-95"
+              >
+                <div className="w-full h-full bg-primary-container flex items-center justify-center text-primary font-bold text-sm">
+                  {profile.name.charAt(0).toUpperCase()}
+                </div>
+              </button>
+            </div>
           </div>
         </header>
 
