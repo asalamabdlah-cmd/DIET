@@ -6,114 +6,203 @@ import ExerciseView from './views/ExerciseView';
 import WeightView from './views/WeightView';
 import ProfileView from './views/ProfileView';
 import LoginView from './views/LoginView';
+import { ErrorFallback } from './components/ErrorBoundary';
 import { useAuth } from './contexts/AuthContext';
-import { ActivityLevel, type UserProfile, type DietRecord, type ExerciseRecord, type WeightRecord } from './types';
+import type { UserProfile, DietRecord, ExerciseRecord, WeightRecord } from './types';
+import {
+  ensureProfile, saveProfile,
+  loadDietRecords, addDietRecord as addDietToDb, updateDietRecord as updateDietToDb, deleteDietRecord as deleteDietFromDb,
+  loadExerciseRecords, addExerciseRecord as addExerciseToDb, updateExerciseRecord as updateExToDb, deleteExerciseRecord as deleteExFromDb,
+  loadWeightRecords, addWeightRecord as addWeightToDb,
+} from './lib/supabaseService';
 import { Leaf, LogOut } from 'lucide-react';
 
 export default function App() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [activeView, setActiveView] = useState('home');
+  const [renderError, setRenderError] = useState<Error | null>(null);
+  const [dataLoading, setDataLoading] = useState(false);
 
   const [profile, setProfile] = useState<UserProfile>({
-    name: user?.email?.split('@')[0] || '用户',
+    name: '用户',
+    gender: '女',
     age: 30,
     height: 165,
     currentWeight: 65,
     targetWeight: 58,
     currentBodyFat: 28,
     targetBodyFat: 24,
-    activityLevel: ActivityLevel.MODERATE,
     bmr: 1400,
     recommendedIntake: 1500,
   });
-
-  // Sync user name when email changes
-  useEffect(() => {
-    if (user?.email) {
-      setProfile(prev => ({
-        ...prev,
-        name: user.email!.split('@')[0],
-      }));
-    }
-  }, [user?.email]);
 
   const [dietRecords, setDietRecords] = useState<DietRecord[]>([]);
   const [exerciseRecords, setExerciseRecords] = useState<ExerciseRecord[]>([]);
   const [weightRecords, setWeightRecords] = useState<WeightRecord[]>([]);
 
-  const addDietRecord = (record: Omit<DietRecord, 'id' | 'time'>) => {
-    const newRecord: DietRecord = {
-      ...record,
-      id: Math.random().toString(36).substr(2, 9),
-      time: new Date(),
+  // Catch global JS errors
+  useEffect(() => {
+    const handler = (event: ErrorEvent) => {
+      console.error('[App] 全局错误:', event.error);
+      setRenderError(event.error || new Error(event.message));
+      event.preventDefault();
     };
-    setDietRecords(prev => [...prev, newRecord]);
+    window.addEventListener('error', handler);
+    return () => window.removeEventListener('error', handler);
+  }, []);
+
+  // Load user data from Supabase after login
+  useEffect(() => {
+    if (!user) return;
+
+    const loadData = async () => {
+      setDataLoading(true);
+      try {
+        const [prof, diet, exercise, weight] = await Promise.all([
+          ensureProfile(user.email!),
+          loadDietRecords(),
+          loadExerciseRecords(),
+          loadWeightRecords(),
+        ]);
+        setProfile(prof);
+        setDietRecords(diet);
+        setExerciseRecords(exercise);
+        setWeightRecords(weight);
+      } catch (err) {
+        console.error('[App] 数据加载失败:', err);
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    loadData();
+  }, [user]);
+
+  const addDietRecord = async (record: Omit<DietRecord, 'id' | 'time'>) => {
+    const saved = await addDietToDb(record);
+    if (saved) {
+      setDietRecords(prev => [saved, ...prev]);
+    }
   };
 
-  const addExerciseRecord = (record: Omit<ExerciseRecord, 'id' | 'time'>) => {
-    const newRecord: ExerciseRecord = {
-      ...record,
-      id: Math.random().toString(36).substr(2, 9),
-      time: new Date(),
-    };
-    setExerciseRecords(prev => [...prev, newRecord]);
+  const addExerciseRecord = async (record: Omit<ExerciseRecord, 'id' | 'time'>) => {
+    const saved = await addExerciseToDb(record);
+    if (saved) {
+      setExerciseRecords(prev => [saved, ...prev]);
+    }
   };
 
-  const updateWeight = (weight: number) => {
-    const newRecord: WeightRecord = {
-      id: Math.random().toString(36).substr(2, 9),
-      date: new Date().toISOString().split('T')[0],
-      weight,
-    };
-    setWeightRecords(prev => [...prev, newRecord]);
-    setProfile(prev => ({ ...prev, currentWeight: weight }));
+  const updateWeight = async (weight: number) => {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Optimistic update: update profile immediately
+    setProfile(prev => {
+      const updated = { ...prev, currentWeight: weight };
+      saveProfile(updated);
+      return updated;
+    });
+
+    // Update local weight records
+    setWeightRecords(prev => {
+      const idx = prev.findIndex(r => r.date === today);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], weight };
+        return next;
+      }
+      const newRecord: WeightRecord = {
+        id: 'local-' + Math.random().toString(36).substr(2, 9),
+        date: today,
+        weight,
+      };
+      return [newRecord, ...prev];
+    });
+
+    // Persist to Supabase (background)
+    try {
+      const saved = await addWeightToDb(weight);
+      if (saved) {
+        setWeightRecords(prev => prev.map(r => r.date === today ? saved : r));
+      }
+    } catch (err) {
+      console.error('[App] 体重保存到 Supabase 失败:', err);
+    }
   };
 
-  // Auth loading state
-  if (loading) {
+  const updateDietRecord = async (id: string, patch: Partial<Omit<DietRecord, 'id' | 'time'>>) => {
+    setDietRecords(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r));
+    await updateDietToDb(id, patch);
+  };
+
+  const deleteDietRecord = async (id: string) => {
+    setDietRecords(prev => prev.filter(r => r.id !== id));
+    await deleteDietFromDb(id);
+  };
+
+  const updateExerciseRecord = async (id: string, patch: Partial<Omit<ExerciseRecord, 'id' | 'time'>>) => {
+    setExerciseRecords(prev => prev.map(r => r.id === id ? { ...r, ...patch } : r));
+    await updateExToDb(id, patch);
+  };
+
+  const deleteExerciseRecord = async (id: string) => {
+    setExerciseRecords(prev => prev.filter(r => r.id !== id));
+    await deleteExFromDb(id);
+  };
+
+  if (renderError) {
+    return <ErrorFallback error={renderError} onReset={() => window.location.reload()} />;
+  }
+
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          <p className="text-sm text-on-surface-variant">加载中...</p>
+          <p className="text-sm text-on-surface-variant">验证身份中...</p>
         </div>
       </div>
     );
   }
 
-  // Not logged in — show login
   if (!user) {
     return <LoginView />;
   }
 
-  // Logged in — show app
+  if (dataLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <p className="text-sm text-on-surface-variant">加载数据中...</p>
+        </div>
+      </div>
+    );
+  }
+
   const renderView = () => {
     switch (activeView) {
       case 'home':
-        return <HomeView profile={profile} dietRecords={dietRecords} exerciseRecords={exerciseRecords} onNavigate={setActiveView} />;
+        return <HomeView profile={profile} dietRecords={dietRecords} exerciseRecords={exerciseRecords} weightRecords={weightRecords} onNavigate={setActiveView} />;
       case 'diet':
-        return <DietView onAddRecord={addDietRecord} records={dietRecords} />;
+        return <DietView profile={profile} onAddRecord={addDietRecord} onUpdateRecord={updateDietRecord} onDeleteRecord={deleteDietRecord} records={dietRecords} />;
       case 'exercise':
-        return <ExerciseView onAddRecord={addExerciseRecord} records={exerciseRecords} />;
+        return <ExerciseView profile={profile} onAddRecord={addExerciseRecord} onUpdateRecord={updateExerciseRecord} onDeleteRecord={deleteExerciseRecord} records={exerciseRecords} />;
       case 'weight':
         return <WeightView profile={profile} records={weightRecords} onAddRecord={updateWeight} />;
       case 'profile':
-        return <ProfileView profile={profile} onSignOut={signOut} />;
+        return <ProfileView profile={profile} onUpdateProfile={(p) => { setProfile(p); saveProfile(p); }} onSignOut={signOut} />;
       default:
-        return <HomeView profile={profile} dietRecords={dietRecords} exerciseRecords={exerciseRecords} onNavigate={setActiveView} />;
+        return <HomeView profile={profile} dietRecords={dietRecords} exerciseRecords={exerciseRecords} weightRecords={weightRecords} onNavigate={setActiveView} />;
     }
   };
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-background">
-      {/* Desktop Navigation */}
       <div className="hidden md:block">
         <Navigation activeView={activeView} onSetView={setActiveView} />
       </div>
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-surface-variant/20">
           <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setActiveView('home')}>
@@ -145,7 +234,6 @@ export default function App() {
           </div>
         </header>
 
-        {/* View Grid */}
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-4xl mx-auto px-6 py-8">
             {renderView()}
@@ -153,7 +241,6 @@ export default function App() {
         </main>
       </div>
 
-      {/* Mobile Navigation */}
       <div className="md:hidden">
         <Navigation activeView={activeView} onSetView={setActiveView} />
       </div>

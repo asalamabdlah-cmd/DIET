@@ -4,7 +4,7 @@ import { Leaf, Mail, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function LoginView() {
-  const { signInWithEmail } = useAuth();
+  const { signInWithEmail, authError, clearAuthError } = useAuth();
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -53,6 +53,29 @@ export default function LoginView() {
           <h1 className="text-2xl font-bold text-on-surface">轻盈助手</h1>
           <p className="text-sm text-on-surface-variant mt-2">智能健康管理，遇见更好的自己</p>
         </div>
+
+        {/* Auth error banner (expired link, etc.) */}
+        {authError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3"
+          >
+            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
+              <AlertCircle size={16} className="text-red-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-red-700">{authError}</p>
+              <p className="text-xs text-red-500 mt-1">请重新输入邮箱获取新链接</p>
+            </div>
+            <button
+              onClick={clearAuthError}
+              className="text-red-400 hover:text-red-600 transition-colors shrink-0"
+            >
+              <span className="text-lg leading-none">&times;</span>
+            </button>
+          </motion.div>
+        )}
 
         {/* Card */}
         <div className="bg-surface-container-lowest rounded-3xl soft-shadow p-8">
