@@ -9,6 +9,7 @@ interface AuthState {
   authError: string | null;
   clearAuthError: () => void;
   signInWithEmail: (email: string) => Promise<{ error?: string }>;
+  verifyOtp: (email: string, token: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
 }
 
@@ -20,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
 
-  // Parse URL hash for error params (expired/invalid magic link, etc.)
+  // Parse URL hash for error params
   useEffect(() => {
     const hash = window.location.hash.substring(1);
     const params = new URLSearchParams(hash);
@@ -30,16 +31,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error || errorCode) {
       const messages: Record<string, string> = {
-        otp_expired: '登录链接已过期，请重新发送',
+        otp_expired: '验证码已过期，请重新发送',
         access_denied: '登录链接无效，请重新发送',
-        invalid_token: '登录凭证无效，请重新发送',
-        token_not_found: '登录链接无效，请重新发送',
       };
       const msg = errorDesc
         ? decodeURIComponent(errorDesc.replace(/\+/g, ' '))
-        : (messages[errorCode || ''] || '登录链接无效，请重新发送');
+        : (messages[errorCode || ''] || '登录失败，请重新发送验证码');
       setAuthError(msg);
-      // Clean hash from URL
       window.history.replaceState(null, '', window.location.pathname);
     }
   }, []);
@@ -49,7 +47,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     console.log('[Auth] 初始化，检查 session...');
 
-    // Safety timeout: force stop loading after 6 seconds
     const timeout = setTimeout(() => {
       if (!cancelled) {
         console.warn('[Auth] 超时 — 强制结束 loading');
@@ -90,24 +87,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithEmail = async (email: string) => {
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: window.location.origin,
-        },
-      });
+      // 不传 emailRedirectTo → Supabase 发 6 位验证码而非 Magic Link
+      const { error } = await supabase.auth.signInWithOtp({ email });
 
-      if (error) {
-        return { error: error.message };
-      }
-
+      if (error) return { error: error.message };
       return {};
     } catch (err: any) {
       console.error('[Auth] signInWithOtp 失败:', err);
       if (err?.message === 'Failed to fetch' || err?.name === 'TypeError') {
-        return { error: '无法连接 Supabase 服务。请确认 .env 中的 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY 已配置为真实项目地址。' };
+        return { error: '无法连接 Supabase 服务' };
       }
       return { error: err?.message || '发送失败，请稍后重试' };
+    }
+  };
+
+  const verifyOtp = async (email: string, token: string) => {
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+
+      if (error) return { error: error.message };
+      return {};
+    } catch (err: any) {
+      console.error('[Auth] verifyOtp 失败:', err);
+      return { error: err?.message || '验证失败' };
     }
   };
 
@@ -118,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, authError, clearAuthError, signInWithEmail, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, authError, clearAuthError, signInWithEmail, verifyOtp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

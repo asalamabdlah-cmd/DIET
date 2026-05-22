@@ -32,16 +32,34 @@ export default function WeightView({ profile, records, onAddRecord }: WeightView
   // Sort records by date ASC for chart and diff calculation
   const sorted = [...records].sort((a, b) => a.date.localeCompare(b.date));
 
-  // Chart data: last N days
+  // Build a lookup map: date -> weight
+  const weightMap = new Map<string, number>();
+  for (const r of records) {
+    weightMap.set(r.date, r.weight);
+  }
+
+  // Generate full date range for the chart (fill gaps with null)
   const days = timeRange === '7' ? 7 : 30;
-  const chartData = sorted.slice(-days).map(r => ({
-    date: r.date.slice(5), // "MM-DD"
-    weight: r.weight,
+  const dateList: string[] = [];
+  const today = new Date();
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    dateList.push(d.toISOString().split('T')[0]);
+  }
+
+  const chartData = dateList.map(dateStr => ({
+    date: dateStr.slice(5), // "MM-DD"
+    weight: weightMap.get(dateStr) ?? null,
   }));
 
+  // Use the last actual record as the "today" value for diff calculation
+  const latestRecord = sorted.length > 0 ? sorted[sorted.length - 1] : null;
+  const prevRecord = sorted.length > 1 ? sorted[sorted.length - 2] : null;
+
   // Diff vs yesterday (or last record)
-  const diff = sorted.length >= 2
-    ? sorted[sorted.length - 1].weight - sorted[sorted.length - 2].weight
+  const diff = latestRecord && prevRecord
+    ? latestRecord.weight - prevRecord.weight
     : null;
 
   const diffText = diff === null || diff === 0

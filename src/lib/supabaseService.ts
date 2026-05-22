@@ -19,6 +19,7 @@ export async function loadProfile(): Promise<UserProfile | null> {
   return {
     name: data.name,
     gender: data.gender || '女',
+    avatarUrl: data.avatar_url || null,
     age: data.age,
     height: data.height,
     currentWeight: data.current_weight,
@@ -44,6 +45,7 @@ export async function saveProfile(profile: UserProfile): Promise<void> {
     target_weight: profile.targetWeight,
     current_body_fat: profile.currentBodyFat,
     target_body_fat: profile.targetBodyFat,
+    avatar_url: (profile as any).avatarUrl || null,
     bmr: profile.bmr,
     recommended_intake: profile.recommendedIntake,
   };
@@ -89,6 +91,26 @@ export async function ensureProfile(userEmail: string): Promise<UserProfile> {
 
   await saveProfile(profile);
   return profile;
+}
+
+export async function uploadAvatar(file: File): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const ext = file.name.split('.').pop() || 'jpg';
+  const path = `${user.id}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type });
+
+  if (error) {
+    console.error('[DB] 头像上传失败:', error);
+    return null;
+  }
+
+  const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+  return urlData.publicUrl;
 }
 
 // ── Diet Records ──

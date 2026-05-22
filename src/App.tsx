@@ -226,9 +226,13 @@ export default function App() {
                 onClick={() => setActiveView('profile')}
                 className="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden border-2 border-white shadow-sm hover:ring-2 ring-primary/20 transition-all active:scale-95"
               >
-                <div className="w-full h-full bg-primary-container flex items-center justify-center text-primary font-bold text-sm">
-                  {profile.name.charAt(0).toUpperCase()}
-                </div>
+                {(profile as any).avatarUrl ? (
+                  <img src={(profile as any).avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-primary-container flex items-center justify-center text-primary font-bold text-sm">
+                    {profile.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
               </button>
             </div>
           </div>

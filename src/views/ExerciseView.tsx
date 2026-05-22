@@ -24,8 +24,8 @@ export default function ExerciseView({ profile, onAddRecord, onUpdateRecord, onD
   const [errorMsg, setErrorMsg] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
-  const [editDuration, setEditDuration] = useState(0);
-  const [editCal, setEditCal] = useState(0);
+  const [editDuration, setEditDuration] = useState("");
+  const [editCal, setEditCal] = useState("");
 
   const handleEstimate = async () => {
     if (!input.trim()) return;
@@ -212,10 +212,10 @@ export default function ExerciseView({ profile, onAddRecord, onUpdateRecord, onD
       <section className="bg-surface-container-lowest rounded-2xl p-6 md:p-8 soft-shadow border border-surface-container/50">
         <h3 className="text-xl font-bold text-on-surface mb-6">运动记录</h3>
         <div className="space-y-2">
-          {records.length === 0 ? (
+          {todayRecords.length === 0 ? (
             <div className="text-center py-8 text-on-surface-variant">还没记录运动，快去活动一下吧</div>
           ) : (
-            records.map((record) => (
+            todayRecords.map((record) => (
               <div key={record.id}>
                 {editId === record.id ? (
                   /* ── Edit Mode ── */
@@ -225,19 +225,19 @@ export default function ExerciseView({ profile, onAddRecord, onUpdateRecord, onD
                     <div className="flex gap-3">
                       <div className="flex-1">
                         <label className="text-[10px] text-on-surface-variant block mb-0.5">时长(分钟)</label>
-                        <input type="number" value={editDuration} onChange={e => setEditDuration(Number(e.target.value) || 0)}
+                        <input type="text" inputMode="numeric" value={editDuration} onChange={e => setEditDuration(e.target.value)}
                           className="w-full bg-white rounded-xl px-3 py-2 text-sm font-bold outline-none border border-surface-variant" />
                       </div>
                       <div className="flex-1">
                         <label className="text-[10px] text-on-surface-variant block mb-0.5">消耗(kcal)</label>
-                        <input type="number" value={editCal} onChange={e => setEditCal(Number(e.target.value) || 0)}
+                        <input type="text" inputMode="numeric" value={editCal} onChange={e => setEditCal(e.target.value)}
                           className="w-full bg-white rounded-xl px-3 py-2 text-sm font-bold outline-none border border-surface-variant" />
                       </div>
                     </div>
                     <div className="flex gap-2 justify-end">
                       <button onClick={() => setEditId(null)} className="p-2 rounded-full bg-surface-container-highest text-on-surface-variant"><X size={16} /></button>
                       <button onClick={() => {
-                        onUpdateRecord(record.id, { name: editName, duration: editDuration, caloriesBurned: editCal });
+                        onUpdateRecord(record.id, { name: editName, duration: Number(editDuration)||0, caloriesBurned: Number(editCal)||0 });
                         setEditId(null);
                       }} className="p-2 rounded-full bg-primary text-white"><Check size={16} /></button>
                     </div>
@@ -264,12 +264,12 @@ export default function ExerciseView({ profile, onAddRecord, onUpdateRecord, onD
                         <div className="text-xl font-bold text-primary">-{record.caloriesBurned}</div>
                         <div className="text-xs text-on-surface-variant font-medium">kcal</div>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <button onClick={() => {
                           setEditId(record.id);
                           setEditName(record.name);
-                          setEditDuration(record.duration);
-                          setEditCal(record.caloriesBurned);
+                          setEditDuration(String(record.duration));
+                          setEditCal(String(record.caloriesBurned));
                         }} className="p-1.5 rounded-full hover:bg-primary/10 text-on-surface-variant hover:text-primary transition-colors">
                           <Pencil size={14} />
                         </button>

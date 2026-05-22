@@ -165,23 +165,34 @@ export async function generateMealRecipe(profile: {
   currentWeight: number;
   targetWeight: number;
   gender: string;
-}, calorieTarget: number, preference?: string) {
-  const prefText = preference
-    ? `用户想吃：${preference}。根据这个偏好来推荐。`
+}, calorieTarget: number, preference?: string, ingredients?: string, mealType?: string, previous?: string[]) {
+  const mealNames: Record<string, string> = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐' };
+  const mealName = mealNames[mealType || 'lunch'] || '午餐';
+
+  const prefText = preference ? `口味偏好：${preference}。` : '';
+  const ingText = ingredients ? `用户指定食材：${ingredients}。严格限制：只能用这些食材+基础调料（油盐酱醋），禁止添加其他原料。` : '';
+  const prevText = previous?.length
+    ? `以下菜品已经推荐过了，本次必须完全不同（不能重复任何一道）：${previous.join(' | ')}`
     : '';
 
+  const variant = Date.now() % 10000;
+
   const prompt = `用户信息：${profile.gender}，体重${profile.currentWeight}kg，目标${profile.targetWeight}kg
-每日推荐摄入 ${profile.recommendedIntake}kcal，本次目标热量 ${calorieTarget}kcal
-${prefText}
+每日推荐摄入 ${profile.recommendedIntake}kcal，本次为${mealName}，目标热量 ${calorieTarget}kcal
+${prefText || '口味偏好：轻食、健康餐'}
+${ingText}
+${prevText}
 
-请推荐一餐食谱，要求：
-1. 给出2-3道菜的具体名称和简要做法
-2. 每道菜标注估算热量
-3. 总热量不超过 ${Math.max(calorieTarget, 300)}kcal
-4. 高蛋白、适量碳水、低脂肪
-5. 家常菜，适合中国人口味
+请为${mealName}推荐食谱，严格按要求：
+1. ${mealName === '加餐' ? '1-2道小食' : '2-3道菜'}，每道写明主料分量（如"鸡蛋2个""白菜200g"）
+2. 每道标注热量（kcal）
+3. 总热量≤${Math.max(calorieTarget, mealType === 'snack' ? 200 : 300)}kcal
+4. ${ingredients ? '只能用指定食材做主料，不可替换，可加基础调料。若指定食材无法独立成菜，必须如实说明。' : '高蛋白、适量碳水、低脂肪'}
+5. 家常中餐
+6. 所有菜必须与已推荐列表完全不同
+7. 风格编号${variant % 7}：0=东南亚 1=日式 2=地中海 3=粤式 4=西北 5=韩式 6=云南
 
-返回纯文本，分点说明，不超过200字。`;
+返回纯文本：菜品名、用料分量、热量、做法。不超过200字。`;
 
   try {
     const text = await callDeepSeek(

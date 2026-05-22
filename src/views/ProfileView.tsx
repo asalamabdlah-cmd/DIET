@@ -1,6 +1,7 @@
-import { useState, type ChangeEvent } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import { motion } from "motion/react";
 import { User, Edit3, Ruler, Scale, Activity, Heart, Flame, Utensils, LogOut, Check, X, RefreshCw } from "lucide-react";
+import { uploadAvatar } from "../lib/supabaseService";
 import type { UserProfile, Gender } from "../types";
 import { calcBMR, calcRecommendedIntake } from "../types";
 
@@ -22,7 +23,7 @@ function NumInput({ value, onChange, ...rest }: {
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
-    if (raw === '' || raw === '-') {
+    if (raw === '') {
       onChange(undefined);
     } else {
       const n = Number(raw);
@@ -32,10 +33,10 @@ function NumInput({ value, onChange, ...rest }: {
 
   return (
     <input
-      type="number"
+      type="text"
+      inputMode="numeric"
       value={display}
       onChange={handleChange}
-      onFocus={e => e.target.select()}
       {...rest}
     />
   );
@@ -46,12 +47,43 @@ export default function ProfileView({ profile, onUpdateProfile, onSignOut }: Pro
   const [draft, setDraft] = useState<UserProfile>(profile);
   const [bmrManual, setBmrManual] = useState(false);
 
+  // Persist edit state across view switches
+  useEffect(() => {
+    const saved = sessionStorage.getItem('profile_edit');
+    if (saved) {
+      try {
+        const { section, draft: savedDraft, bmrManual: savedBmr } = JSON.parse(saved);
+        setEditingSection(section);
+        setDraft(savedDraft);
+        setBmrManual(savedBmr);
+        sessionStorage.removeItem('profile_edit');
+      } catch {}
+    }
+  }, []);
+
+  // Save editing state on unmount (view switch)
+  useEffect(() => {
+    return () => {
+      if (editingSection) {
+        sessionStorage.setItem('profile_edit', JSON.stringify({
+          section: editingSection,
+          draft,
+          bmrManual,
+        }));
+      }
+    };
+  }, [editingSection, draft, bmrManual]);
+
   const startEdit = (section: string) => {
     setDraft({ ...profile });
     setEditingSection(section);
   };
 
   const cancelEdit = () => {
+    // Save state before closing, so user can resume
+    sessionStorage.setItem('profile_edit', JSON.stringify({
+      section: editingSection, draft, bmrManual,
+    }));
     setEditingSection(null);
     setBmrManual(false);
   };
@@ -102,11 +134,24 @@ export default function ProfileView({ profile, onUpdateProfile, onSignOut }: Pro
     >
       {/* Header */}
       <section className="flex flex-col items-center mb-12">
-        <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full bg-white soft-shadow mb-6 overflow-hidden border-4 border-surface ring-4 ring-primary/5">
-          <div className="w-full h-full bg-primary-container flex items-center justify-center">
-            <span className="text-5xl font-bold text-primary">{profile.name.charAt(0).toUpperCase()}</span>
+        <label className="relative w-32 h-32 md:w-40 md:h-40 rounded-full bg-white soft-shadow mb-6 overflow-hidden border-4 border-surface ring-4 ring-primary/5 cursor-pointer group/avatar">
+          {(profile as any).avatarUrl ? (
+            <img src={(profile as any).avatarUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full bg-primary-container flex items-center justify-center">
+              <span className="text-5xl font-bold text-primary">{profile.name.charAt(0).toUpperCase()}</span>
+            </div>
+          )}
+          <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity">
+            <span className="text-white text-xs font-bold">更换</span>
           </div>
-        </div>
+          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const url = await uploadAvatar(file);
+            if (url) onUpdateProfile({ ...profile, avatarUrl: url } as any);
+          }} />
+        </label>
 
         {isEditing('header') ? (
           <div className="flex flex-col items-center gap-2">
@@ -169,7 +214,7 @@ export default function ProfileView({ profile, onUpdateProfile, onSignOut }: Pro
 
           {isEditing('basic') ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1 block">年龄</label>
                   <NumInput value={draft.age} onChange={v => update({ age: v })}
@@ -216,7 +261,7 @@ export default function ProfileView({ profile, onUpdateProfile, onSignOut }: Pro
 
           {isEditing('weight') ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1 block">当前体重 (kg)</label>
                   <NumInput value={draft.currentWeight} onChange={v => update({ currentWeight: v })} step="0.1"
@@ -301,23 +346,22 @@ export default function ProfileView({ profile, onUpdateProfile, onSignOut }: Pro
                 💡 推荐摄入 = 总消耗 − 300kcal 减脂缺口，男性不低于 1500，女性不低于 1200
               </p>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1 block flex items-center gap-2">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1 block">
                     基础代谢 (BMR)
-                    {bmrManual ? (
-                      <span className="text-primary text-[10px] font-normal">手动</span>
-                    ) : (
-                      <span className="text-green-600 text-[10px] font-normal">自动测算</span>
-                    )}
+                    {bmrManual
+                      ? <span className="text-primary text-[10px] font-normal ml-1">手动</span>
+                      : <span className="text-green-600 text-[10px] font-normal ml-1">自动测算</span>
+                    }
                   </label>
                   <div className="flex items-center gap-2">
                     <NumInput
                       value={draft.bmr}
                       onChange={v => { setBmrManual(true); update({ bmr: v }); }}
-                      className="flex-1 bg-surface-container-low rounded-xl px-4 py-3 text-on-surface font-bold text-lg outline-none border-2 border-primary/40 focus:border-primary"
+                      className="w-full min-w-0 bg-surface-container-low rounded-xl px-4 py-3 text-on-surface font-bold outline-none border-2 border-primary/40 focus:border-primary"
                     />
-                    <span className="text-sm text-on-surface-variant font-medium">kcal</span>
+                    <span className="text-sm text-on-surface-variant font-medium whitespace-nowrap">kcal</span>
                   </div>
                 </div>
                 <div>
@@ -326,9 +370,9 @@ export default function ProfileView({ profile, onUpdateProfile, onSignOut }: Pro
                     <NumInput
                       value={draft.recommendedIntake}
                       onChange={v => update({ recommendedIntake: v })}
-                      className="flex-1 bg-surface-container-low rounded-xl px-4 py-3 text-primary font-bold text-lg outline-none border-2 border-primary/40 focus:border-primary"
+                      className="w-full min-w-0 bg-surface-container-low rounded-xl px-4 py-3 text-primary font-bold outline-none border-2 border-primary/40 focus:border-primary"
                     />
-                    <span className="text-sm text-on-surface-variant font-medium">kcal</span>
+                    <span className="text-sm text-on-surface-variant font-medium whitespace-nowrap">kcal</span>
                   </div>
                 </div>
               </div>

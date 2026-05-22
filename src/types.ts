@@ -69,6 +69,7 @@ export interface WeightRecord {
 export interface UserProfile {
   name: string;
   gender: Gender;
+  avatarUrl?: string | null;
   age: number;
   height: number;
   currentWeight: number;
