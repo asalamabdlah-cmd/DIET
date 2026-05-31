@@ -112,9 +112,9 @@ export default function DietView({ profile, onAddRecord, onUpdateRecord, onDelet
       });
       setEstimationResult(null);
       setInput("");
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Diet] 保存失败:', err);
-      alert('保存失败，请稍后重试');
+      alert(err?.message || '保存失败，请稍后重试');
     } finally {
       setSaving(false);
     }

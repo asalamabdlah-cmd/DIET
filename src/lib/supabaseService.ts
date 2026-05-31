@@ -141,8 +141,19 @@ export async function loadDietRecords(): Promise<DietRecord[]> {
 }
 
 export async function addDietRecord(record: Omit<DietRecord, 'id' | 'time'>): Promise<DietRecord | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  // 先尝试刷新 session
+  let user;
+  try {
+    const { data: refreshData } = await supabase.auth.refreshSession();
+    user = refreshData.session?.user;
+  } catch {
+    // refreshSession 失败，回退到 getUser
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  }
+  if (!user) {
+    throw new Error('登录已过期，请退出后重新登录');
+  }
 
   const { data, error } = await supabase
     .from('diet_records')
@@ -160,10 +171,12 @@ export async function addDietRecord(record: Omit<DietRecord, 'id' | 'time'>): Pr
     .single();
 
   if (error) {
-    console.error('[DB] 添加饮食记录失败:', error.message, error.details);
-    return null;
+    console.error('[DB] 添加饮食记录失败:', error.message, error.details, error.code);
+    if (error.code === '42501') throw new Error('权限不足，请联系管理员');
+    if (error.code === '23505') throw new Error('记录已存在');
+    throw new Error(`保存失败：${error.message}`);
   }
-  if (!data) return null;
+  if (!data) throw new Error('保存失败：服务器未返回数据');
 
   return {
     id: data.id,
@@ -239,8 +252,17 @@ export async function loadExerciseRecords(): Promise<ExerciseRecord[]> {
 }
 
 export async function addExerciseRecord(record: Omit<ExerciseRecord, 'id' | 'time'>): Promise<ExerciseRecord | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  let user;
+  try {
+    const { data: refreshData } = await supabase.auth.refreshSession();
+    user = refreshData.session?.user;
+  } catch {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  }
+  if (!user) {
+    throw new Error('登录已过期，请退出后重新登录');
+  }
 
   const { data, error } = await supabase
     .from('exercise_records')
@@ -255,10 +277,11 @@ export async function addExerciseRecord(record: Omit<ExerciseRecord, 'id' | 'tim
     .single();
 
   if (error) {
-    console.error('[DB] 添加运动记录失败:', error.message, error.details);
-    return null;
+    console.error('[DB] 添加运动记录失败:', error.message, error.details, error.code);
+    if (error.code === '42501') throw new Error('权限不足，请联系管理员');
+    throw new Error(`保存失败：${error.message}`);
   }
-  if (!data) return null;
+  if (!data) throw new Error('保存失败：服务器未返回数据');
 
   return {
     id: data.id,

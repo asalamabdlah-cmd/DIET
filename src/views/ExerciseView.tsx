@@ -64,9 +64,9 @@ export default function ExerciseView({ profile, onAddRecord, onUpdateRecord, onD
       });
       setEstimation(null);
       setInput("");
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Exercise] 保存失败:', err);
-      alert('保存失败，请稍后重试');
+      alert(err?.message || '保存失败，请稍后重试');
     } finally {
       setSaving(false);
     }
