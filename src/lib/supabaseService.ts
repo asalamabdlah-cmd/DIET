@@ -256,8 +256,8 @@ export async function addExerciseRecord(record: Omit<ExerciseRecord, 'id' | 'tim
     .insert({
       user_id: user.id,
       name: record.name,
-      duration: record.duration,
-      calories_burned: record.caloriesBurned,
+      duration: Math.round(record.duration) || 0,
+      calories_burned: Math.round(record.caloriesBurned) || 0,
       time: new Date().toISOString(),
     })
     .select()
@@ -283,13 +283,14 @@ export async function updateExerciseRecord(id: string, patch: Partial<Omit<Exerc
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
 
+  const updateExData: any = {};
+  if (patch.name !== undefined) updateExData.name = patch.name;
+  if (patch.duration !== undefined) updateExData.duration = Math.round(patch.duration) || 0;
+  if (patch.caloriesBurned !== undefined) updateExData.calories_burned = Math.round(patch.caloriesBurned) || 0;
+
   const { error } = await supabase
     .from('exercise_records')
-    .update({
-      name: patch.name,
-      duration: patch.duration,
-      calories_burned: patch.caloriesBurned,
-    })
+    .update(updateExData)
     .eq('id', id)
     .eq('user_id', user.id);
 
