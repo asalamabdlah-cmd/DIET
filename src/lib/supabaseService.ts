@@ -141,16 +141,7 @@ export async function loadDietRecords(): Promise<DietRecord[]> {
 }
 
 export async function addDietRecord(record: Omit<DietRecord, 'id' | 'time'>): Promise<DietRecord | null> {
-  // 先尝试刷新 session
-  let user;
-  try {
-    const { data: refreshData } = await supabase.auth.refreshSession();
-    user = refreshData.session?.user;
-  } catch {
-    // refreshSession 失败，回退到 getUser
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
-  }
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('登录已过期，请退出后重新登录');
   }
@@ -252,14 +243,7 @@ export async function loadExerciseRecords(): Promise<ExerciseRecord[]> {
 }
 
 export async function addExerciseRecord(record: Omit<ExerciseRecord, 'id' | 'time'>): Promise<ExerciseRecord | null> {
-  let user;
-  try {
-    const { data: refreshData } = await supabase.auth.refreshSession();
-    user = refreshData.session?.user;
-  } catch {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
-  }
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('登录已过期，请退出后重新登录');
   }
