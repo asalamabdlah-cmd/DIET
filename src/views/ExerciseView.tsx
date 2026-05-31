@@ -22,6 +22,7 @@ export default function ExerciseView({ profile, onAddRecord, onUpdateRecord, onD
   const [isEstimating, setIsEstimating] = useState(false);
   const [estimation, setEstimation] = useState<EstResult | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDuration, setEditDuration] = useState("");
@@ -52,15 +53,23 @@ export default function ExerciseView({ profile, onAddRecord, onUpdateRecord, onD
     }
   };
 
-  const handleConfirm = () => {
-    if (!estimation || !estimation.isExercise) return;
-    onAddRecord({
-      name: estimation.summary || estimation.name,
-      duration: estimation.duration,
-      caloriesBurned: estimation.caloriesBurned,
-    });
-    setEstimation(null);
-    setInput("");
+  const handleConfirm = async () => {
+    if (!estimation || !estimation.isExercise || saving) return;
+    setSaving(true);
+    try {
+      await onAddRecord({
+        name: estimation.summary || estimation.name,
+        duration: estimation.duration,
+        caloriesBurned: estimation.caloriesBurned,
+      });
+      setEstimation(null);
+      setInput("");
+    } catch (err) {
+      console.error('[Exercise] 保存失败:', err);
+      alert('保存失败，请稍后重试');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const todayRecords = records.filter(r => {
@@ -170,9 +179,10 @@ export default function ExerciseView({ profile, onAddRecord, onUpdateRecord, onD
                 </button>
                 <button
                   onClick={handleConfirm}
-                  className="flex-1 py-3 rounded-full bg-primary text-white font-bold hover:opacity-90 transition-opacity shadow-sm"
+                  disabled={saving}
+                  className="flex-1 py-3 rounded-full bg-primary text-white font-bold hover:opacity-90 transition-opacity shadow-sm disabled:opacity-50"
                 >
-                  确认记录
+                  {saving ? '保存中...' : '确认记录'}
                 </button>
               </div>
             </div>

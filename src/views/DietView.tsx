@@ -26,6 +26,7 @@ export default function DietView({ profile, onAddRecord, onUpdateRecord, onDelet
   const [recipeCalDirty, setRecipeCalDirty] = useState(false);
   const [prevRecipes, setPrevRecipes] = useState<string[]>([]);
   const [listening, setListening] = useState(false);
+  const [saving, setSaving] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   // Edit state (strings to avoid number input 0-append bug)
@@ -97,9 +98,11 @@ export default function DietView({ profile, onAddRecord, onUpdateRecord, onDelet
     }
   };
 
-  const handleConfirm = () => {
-    if (estimationResult) {
-      onAddRecord({
+  const handleConfirm = async () => {
+    if (!estimationResult || saving) return;
+    setSaving(true);
+    try {
+      await onAddRecord({
         name: estimationResult.name,
         calories: estimationResult.calories,
         carbs: estimationResult.carbs,
@@ -109,6 +112,11 @@ export default function DietView({ profile, onAddRecord, onUpdateRecord, onDelet
       });
       setEstimationResult(null);
       setInput("");
+    } catch (err) {
+      console.error('[Diet] 保存失败:', err);
+      alert('保存失败，请稍后重试');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -390,9 +398,10 @@ export default function DietView({ profile, onAddRecord, onUpdateRecord, onDelet
 
               <button
                 onClick={handleConfirm}
-                className="w-full py-4 mt-2 bg-surface-container-lowest text-primary rounded-2xl font-bold border border-primary-fixed-dim hover:bg-primary-fixed/30 transition-colors shadow-sm"
+                disabled={saving}
+                className="w-full py-4 mt-2 bg-surface-container-lowest text-primary rounded-2xl font-bold border border-primary-fixed-dim hover:bg-primary-fixed/30 transition-colors shadow-sm disabled:opacity-50"
               >
-                确认添加至今日饮食
+                {saving ? '保存中...' : '确认添加至今日饮食'}
               </button>
             </div>
           </motion.div>

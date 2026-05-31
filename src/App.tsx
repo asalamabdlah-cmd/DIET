@@ -80,16 +80,14 @@ export default function App() {
 
   const addDietRecord = async (record: Omit<DietRecord, 'id' | 'time'>) => {
     const saved = await addDietToDb(record);
-    if (saved) {
-      setDietRecords(prev => [saved, ...prev]);
-    }
+    if (!saved) throw new Error('添加饮食记录失败');
+    setDietRecords(prev => [saved, ...prev]);
   };
 
   const addExerciseRecord = async (record: Omit<ExerciseRecord, 'id' | 'time'>) => {
     const saved = await addExerciseToDb(record);
-    if (saved) {
-      setExerciseRecords(prev => [saved, ...prev]);
-    }
+    if (!saved) throw new Error('添加运动记录失败');
+    setExerciseRecords(prev => [saved, ...prev]);
   };
 
   const updateWeight = async (weight: number) => {

@@ -159,7 +159,11 @@ export async function addDietRecord(record: Omit<DietRecord, 'id' | 'time'>): Pr
     .select()
     .single();
 
-  if (error || !data) return null;
+  if (error) {
+    console.error('[DB] 添加饮食记录失败:', error.message, error.details);
+    return null;
+  }
+  if (!data) return null;
 
   return {
     id: data.id,
@@ -190,7 +194,11 @@ export async function updateDietRecord(id: string, patch: Partial<Omit<DietRecor
     .eq('id', id)
     .eq('user_id', user.id);
 
-  return !error;
+  if (error) {
+    console.error('[DB] 更新饮食记录失败:', error.message, error.details);
+    return false;
+  }
+  return true;
 }
 
 export async function deleteDietRecord(id: string): Promise<boolean> {
@@ -246,7 +254,11 @@ export async function addExerciseRecord(record: Omit<ExerciseRecord, 'id' | 'tim
     .select()
     .single();
 
-  if (error || !data) return null;
+  if (error) {
+    console.error('[DB] 添加运动记录失败:', error.message, error.details);
+    return null;
+  }
+  if (!data) return null;
 
   return {
     id: data.id,
@@ -271,7 +283,11 @@ export async function updateExerciseRecord(id: string, patch: Partial<Omit<Exerc
     .eq('id', id)
     .eq('user_id', user.id);
 
-  return !error;
+  if (error) {
+    console.error('[DB] 更新运动记录失败:', error.message, error.details);
+    return false;
+  }
+  return true;
 }
 
 export async function deleteExerciseRecord(id: string): Promise<boolean> {
