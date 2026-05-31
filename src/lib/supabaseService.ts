@@ -146,15 +146,17 @@ export async function addDietRecord(record: Omit<DietRecord, 'id' | 'time'>): Pr
     throw new Error('登录已过期，请退出后重新登录');
   }
 
+  console.log('[DB] 即将插入饮食记录:', { name: record.name, calories: record.calories, carbs: record.carbs, protein: record.protein, fat: record.fat });
+
   const { data, error } = await supabase
     .from('diet_records')
     .insert({
       user_id: user.id,
       name: record.name,
-      calories: Math.round(record.calories),
-      carbs: Math.round(record.carbs),
-      protein: Math.round(record.protein),
-      fat: Math.round(record.fat),
+      calories: Math.round(record.calories) || 0,
+      carbs: Math.round(record.carbs) || 0,
+      protein: Math.round(record.protein) || 0,
+      fat: Math.round(record.fat) || 0,
       type: record.type,
       time: new Date().toISOString(),
     })
@@ -187,10 +189,10 @@ export async function updateDietRecord(id: string, patch: Partial<Omit<DietRecor
 
   const updateData: any = {};
   if (patch.name !== undefined) updateData.name = patch.name;
-  if (patch.calories !== undefined) updateData.calories = Math.round(patch.calories);
-  if (patch.carbs !== undefined) updateData.carbs = Math.round(patch.carbs);
-  if (patch.protein !== undefined) updateData.protein = Math.round(patch.protein);
-  if (patch.fat !== undefined) updateData.fat = Math.round(patch.fat);
+  if (patch.calories !== undefined) updateData.calories = Math.round(patch.calories) || 0;
+  if (patch.carbs !== undefined) updateData.carbs = Math.round(patch.carbs) || 0;
+  if (patch.protein !== undefined) updateData.protein = Math.round(patch.protein) || 0;
+  if (patch.fat !== undefined) updateData.fat = Math.round(patch.fat) || 0;
   if (patch.type !== undefined) updateData.type = patch.type;
 
   const { error } = await supabase

@@ -114,7 +114,8 @@ export default function DietView({ profile, onAddRecord, onUpdateRecord, onDelet
       setInput("");
     } catch (err: any) {
       console.error('[Diet] 保存失败:', err);
-      alert(err?.message || '保存失败，请稍后重试');
+      const msg = err?.message || err?.toString() || String(err) || '未知错误';
+      alert(`保存失败：${msg}`);
     } finally {
       setSaving(false);
     }
