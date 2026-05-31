@@ -151,10 +151,10 @@ export async function addDietRecord(record: Omit<DietRecord, 'id' | 'time'>): Pr
     .insert({
       user_id: user.id,
       name: record.name,
-      calories: record.calories,
-      carbs: record.carbs,
-      protein: record.protein,
-      fat: record.fat,
+      calories: Math.round(record.calories),
+      carbs: Math.round(record.carbs),
+      protein: Math.round(record.protein),
+      fat: Math.round(record.fat),
       type: record.type,
       time: new Date().toISOString(),
     })
@@ -185,16 +185,17 @@ export async function updateDietRecord(id: string, patch: Partial<Omit<DietRecor
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
 
+  const updateData: any = {};
+  if (patch.name !== undefined) updateData.name = patch.name;
+  if (patch.calories !== undefined) updateData.calories = Math.round(patch.calories);
+  if (patch.carbs !== undefined) updateData.carbs = Math.round(patch.carbs);
+  if (patch.protein !== undefined) updateData.protein = Math.round(patch.protein);
+  if (patch.fat !== undefined) updateData.fat = Math.round(patch.fat);
+  if (patch.type !== undefined) updateData.type = patch.type;
+
   const { error } = await supabase
     .from('diet_records')
-    .update({
-      name: patch.name,
-      calories: patch.calories,
-      carbs: patch.carbs,
-      protein: patch.protein,
-      fat: patch.fat,
-      type: patch.type,
-    })
+    .update(updateData)
     .eq('id', id)
     .eq('user_id', user.id);
 
