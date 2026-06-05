@@ -3,15 +3,17 @@
 import { GoogleGenAI, createPartFromBase64, createPartFromText, createUserContent } from '@google/genai';
 
 function getKey(): string {
-  // Vite injects GEMINI_API_KEY into process.env via define
-  const viteKey = (typeof process !== 'undefined' && (process as any).env?.GEMINI_API_KEY) || '';
-  if (viteKey && viteKey !== 'MY_GEMINI_API_KEY') return viteKey;
+  // Direct reference — Vite define replaces this at build time
+  try {
+    const key = process.env.GEMINI_API_KEY;
+    if (key && key !== 'MY_GEMINI_API_KEY' && key !== 'undefined') return key;
+  } catch {}
 
-  // Fallback: VITE_ prefix (conventional Vite env var)
-  const vitePrefixKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
-  if (vitePrefixKey) return vitePrefixKey;
+  // Fallback
+  const viteKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+  if (viteKey) return viteKey;
 
-  throw new Error('未配置 Gemini API Key，请在 .env 中设置 GEMINI_API_KEY');
+  throw new Error('未配置 Gemini API Key，请在 GitHub Secrets 中设置 GEMINI_API_KEY');
 }
 
 export interface FoodAnalysis {
