@@ -30,8 +30,10 @@ export default defineConfig(({mode}) => {
       }),
     ],
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY || env.GEMINI_API_KEY),
+      'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY ?? ''),
     },
+    // Also expose as VITE_ prefix for import.meta.env fallback
+    envPrefix: ['VITE_', 'GEMINI_'],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

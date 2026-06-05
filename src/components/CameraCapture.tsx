@@ -15,6 +15,8 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
   const [errorMessage, setErrorMessage] = useState('');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<FoodAnalysis | null>(null);
+  // Track when to attach stream to video (solves race condition)
+  const [pendingStream, setPendingStream] = useState<MediaStream | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,11 +28,23 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
+    setPendingStream(null);
   }, []);
 
   useEffect(() => {
     return () => stopStream();
   }, [stopStream]);
+
+  // ── Attach stream once video element appears in DOM ──
+  useEffect(() => {
+    if (!pendingStream || !videoRef.current) return;
+    const video = videoRef.current;
+    video.srcObject = pendingStream;
+    video.play().catch(err => console.error('[Camera] play failed:', err));
+    streamRef.current = pendingStream;
+    setPendingStream(null);
+    setCameraState('live');
+  }, [pendingStream]);
 
   // ── Start Camera ──
   const startCamera = async () => {
@@ -45,15 +59,12 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
         },
         audio: false,
       });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setCameraState('live');
+      // Set state to 'requesting-live-transition' first so video element renders,
+      // then useEffect will attach the stream once videoRef is ready
+      setPendingStream(stream);
+      // Keep state as requesting until useEffect attaches stream → sets 'live'
     } catch (err: any) {
       console.error('[Camera] 打开失败:', err);
-      stopStream();
       if (err.name === 'NotAllowedError') {
         setErrorMessage('摄像头权限被拒绝，请在浏览器设置中允许访问摄像头');
       } else if (err.name === 'NotFoundError') {
@@ -133,7 +144,7 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3">
           <span className="text-white text-sm font-bold">
-            {cameraState === 'live' && '对准食物，点击拍照'}
+            {(cameraState === 'live' || pendingStream) && '对准食物，点击拍照'}
             {cameraState === 'analyzing' && 'AI 分析中...'}
             {cameraState === 'result' && '识别结果'}
             {cameraState === 'error' && '出错了'}
@@ -169,16 +180,16 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
             </div>
           )}
 
-          {/* ── REQUESTING ── */}
-          {cameraState === 'requesting' && (
+          {/* ── REQUESTING (before stream) ── */}
+          {cameraState === 'requesting' && !pendingStream && (
             <div className="flex flex-col items-center gap-4">
               <Loader2 size={40} className="text-white animate-spin" />
               <p className="text-white/60 text-sm">请求摄像头权限...</p>
             </div>
           )}
 
-          {/* ── LIVE ── */}
-          {cameraState === 'live' && (
+          {/* ── LIVE (stream ready or already attached) ── */}
+          {(cameraState === 'live' || pendingStream) && (
             <div className="relative w-full h-full">
               <video
                 ref={videoRef}

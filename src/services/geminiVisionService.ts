@@ -3,15 +3,13 @@
 import { GoogleGenAI, createPartFromBase64, createPartFromText, createUserContent } from '@google/genai';
 
 function getKey(): string {
-  // Direct reference — Vite define replaces this at build time
-  try {
-    const key = process.env.GEMINI_API_KEY;
-    if (key && key !== 'MY_GEMINI_API_KEY' && key !== 'undefined') return key;
-  } catch {}
+  // Vite define replaces process.env.GEMINI_API_KEY with the actual key at build time
+  const definedKey = process.env.GEMINI_API_KEY;
+  if (definedKey && definedKey.length > 10) return definedKey;
 
-  // Fallback
-  const viteKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
-  if (viteKey) return viteKey;
+  // Fallback: import.meta.env (works with VITE_ prefixed vars and custom envPrefix)
+  const importKey = (import.meta as any).env?.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY || '';
+  if (importKey && importKey.length > 10) return importKey;
 
   throw new Error('未配置 Gemini API Key，请在 GitHub Secrets 中设置 GEMINI_API_KEY');
 }
