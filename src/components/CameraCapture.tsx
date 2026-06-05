@@ -15,12 +15,19 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
   const [errorMessage, setErrorMessage] = useState('');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<FoodAnalysis | null>(null);
-  // Track when to attach stream to video (solves race condition)
-  const [pendingStream, setPendingStream] = useState<MediaStream | null>(null);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // ── Callback ref: fires synchronously when video mounts ──
+  // This keeps the play() call within the user-gesture chain
+  const videoCb = useCallback((node: HTMLVideoElement | null) => {
+    if (node && streamRef.current) {
+      node.srcObject = streamRef.current;
+      node.play().catch(err => console.error('[Camera] play failed:', err));
+    }
+    // Do NOT clear node.srcObject on unmount — React may reuse nodes
+  }, []);
 
   // ── Cleanup on unmount ──
   const stopStream = useCallback(() => {
@@ -28,23 +35,11 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
-    setPendingStream(null);
   }, []);
 
   useEffect(() => {
     return () => stopStream();
   }, [stopStream]);
-
-  // ── Attach stream once video element appears in DOM ──
-  useEffect(() => {
-    if (!pendingStream || !videoRef.current) return;
-    const video = videoRef.current;
-    video.srcObject = pendingStream;
-    video.play().catch(err => console.error('[Camera] play failed:', err));
-    streamRef.current = pendingStream;
-    setPendingStream(null);
-    setCameraState('live');
-  }, [pendingStream]);
 
   // ── Start Camera ──
   const startCamera = async () => {
@@ -59,10 +54,10 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
         },
         audio: false,
       });
-      // Set state to 'requesting-live-transition' first so video element renders,
-      // then useEffect will attach the stream once videoRef is ready
-      setPendingStream(stream);
-      // Keep state as requesting until useEffect attaches stream → sets 'live'
+      streamRef.current = stream;
+      // Switch to live — React will mount the <video> and videoCb will
+      // attach the stream synchronously, preserving user gesture for autoplay
+      setCameraState('live');
     } catch (err: any) {
       console.error('[Camera] 打开失败:', err);
       if (err.name === 'NotAllowedError') {
@@ -80,7 +75,8 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
 
   // ── Capture Frame ──
   const capture = () => {
-    const video = videoRef.current;
+    // Find the active video element in DOM
+    const video = document.querySelector('[data-camera-video]') as HTMLVideoElement | null;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
@@ -144,7 +140,7 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3">
           <span className="text-white text-sm font-bold">
-            {(cameraState === 'live' || pendingStream) && '对准食物，点击拍照'}
+            {cameraState === 'live' && '对准食物，点击拍照'}
             {cameraState === 'analyzing' && 'AI 分析中...'}
             {cameraState === 'result' && '识别结果'}
             {cameraState === 'error' && '出错了'}
@@ -180,19 +176,20 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
             </div>
           )}
 
-          {/* ── REQUESTING (before stream) ── */}
-          {cameraState === 'requesting' && !pendingStream && (
+          {/* ── REQUESTING ── */}
+          {cameraState === 'requesting' && (
             <div className="flex flex-col items-center gap-4">
               <Loader2 size={40} className="text-white animate-spin" />
               <p className="text-white/60 text-sm">请求摄像头权限...</p>
             </div>
           )}
 
-          {/* ── LIVE (stream ready or already attached) ── */}
-          {(cameraState === 'live' || pendingStream) && (
-            <div className="relative w-full h-full">
+          {/* ── LIVE ── */}
+          {cameraState === 'live' && (
+            <div className="absolute inset-0">
               <video
-                ref={videoRef}
+                ref={videoCb}
+                data-camera-video
                 autoPlay
                 playsInline
                 muted
