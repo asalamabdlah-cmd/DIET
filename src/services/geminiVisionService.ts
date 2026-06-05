@@ -56,8 +56,8 @@ If no food is visible, return:
     },
   };
 
-  // Try gemini-2.0-flash (more widely available) — append key as query param
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+  // AQ.* keys need Bearer token auth, not API key auth
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
 
   console.log('[GeminiVision] 发送请求，图片大小:', (base64Data.length / 1024).toFixed(1), 'KB');
 
@@ -65,7 +65,7 @@ If no food is visible, return:
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
   });
