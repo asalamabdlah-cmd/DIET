@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Camera, X, Loader2, RefreshCw, Check, Sparkles, AlertCircle } from 'lucide-react';
-import { estimateFoodCalories } from '../services/geminiService';
+import { Camera, X, Loader2, RefreshCw, Check, AlertCircle, Zap } from 'lucide-react';
+import { analyzeFoodImage, type FoodAnalysis } from '../services/geminiVisionService';
 
-type CameraState = 'idle' | 'requesting' | 'live' | 'describing' | 'analyzing' | 'result' | 'error';
+type CameraState = 'idle' | 'requesting' | 'live' | 'analyzing' | 'result' | 'error';
 
 interface CameraCaptureProps {
   onResult: (food: { name: string; calories: number; carbs: number; protein: number; fat: number; weight?: string }) => void;
@@ -14,8 +14,7 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
   const [cameraState, setCameraState] = useState<CameraState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [description, setDescription] = useState('');
-  const [result, setResult] = useState<any>(null);
+  const [analysis, setAnalysis] = useState<FoodAnalysis | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -61,7 +60,7 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
     }
   };
 
-  // ── Capture Frame → Go to Describe ──
+  // ── Capture Frame → Analyze Immediately ──
   const capture = () => {
     const video = document.querySelector('[data-camera-video]') as HTMLVideoElement | null;
     const canvas = canvasRef.current;
@@ -78,35 +77,32 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
     const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
     setCapturedImage(dataUrl);
     stopStream();
-    setCameraState('describing');
-  };
-
-  // ── Analyze with DeepSeek ──
-  const analyze = async () => {
-    const desc = description.trim() || '一份食物';
     setCameraState('analyzing');
-    try {
-      const r = await estimateFoodCalories(desc);
-      setResult(r);
-      setCameraState('result');
-    } catch (err: any) {
-      console.error('[Camera] DeepSeek 分析失败:', err);
-      const msg = err?.message || String(err);
-      setErrorMessage(msg.includes('未配置') ? 'DeepSeek API 未配置' : `AI 分析失败：${msg}`);
-      setCameraState('error');
-    }
+
+    // Send to Gemini Vision
+    const bareBase64 = dataUrl.split(',')[1];
+    analyzeFoodImage(bareBase64, 'image/jpeg')
+      .then(result => {
+        setAnalysis(result);
+        setCameraState('result');
+      })
+      .catch(err => {
+        console.error('[Camera] AI 分析失败:', err);
+        setErrorMessage(err?.message || 'AI 分析失败，请重试');
+        setCameraState('error');
+      });
   };
 
   // ── Confirm ──
   const confirm = () => {
-    if (!result) return;
+    if (!analysis || analysis.calories === 0) return;
     onResult({
-      name: result.name,
-      calories: result.calories,
-      carbs: result.carbs,
-      protein: result.protein,
-      fat: result.fat,
-      weight: result.weight,
+      name: analysis.name,
+      calories: analysis.calories,
+      carbs: analysis.carbs,
+      protein: analysis.protein,
+      fat: analysis.fat,
+      weight: analysis.weight,
     });
     onClose();
   };
@@ -120,7 +116,6 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-3">
           <span className="text-white text-sm font-bold">
             {cameraState === 'live' && '对准食物，点击拍照'}
-            {cameraState === 'describing' && '描述照片中的食物'}
             {cameraState === 'analyzing' && 'AI 分析中...'}
             {cameraState === 'result' && '识别结果'}
             {cameraState === 'error' && '出错了'}
@@ -172,69 +167,40 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
             </div>
           )}
 
-          {/* DESCRIBING — show photo + text input */}
-          {cameraState === 'describing' && capturedImage && (
-            <div className="w-full max-w-sm mx-auto px-6 py-6 space-y-5">
-              <img src={capturedImage} alt=""
-                className="w-full h-48 rounded-2xl object-cover shadow-lg" />
-
-              <div className="bg-white/10 rounded-2xl p-5">
-                <label className="text-white text-sm font-bold mb-2 block">
-                  🍽️ 照片里是什么食物？
-                </label>
-                <textarea
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  className="w-full h-20 bg-white/15 rounded-xl p-3 text-white text-sm placeholder-white/40 outline-none resize-none"
-                  placeholder="例如：一碗米饭、红烧肉、青菜..."
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); analyze(); }}}
-                  autoFocus
-                />
-                <div className="flex gap-3 mt-4">
-                  <button onClick={() => { setCapturedImage(null); setDescription(''); startCamera(); }}
-                    className="flex-1 py-3 rounded-full bg-white/10 text-white font-medium hover:bg-white/20 flex items-center justify-center gap-2">
-                    <RefreshCw size={16} />重新拍照
-                  </button>
-                  <button onClick={analyze}
-                    className="flex-1 py-3 rounded-full bg-white text-black font-bold hover:bg-white/90 active:scale-95 flex items-center justify-center gap-2">
-                    <Sparkles size={18} />AI 估算
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* ANALYZING */}
           {cameraState === 'analyzing' && capturedImage && (
             <div className="relative w-full h-full">
               <img src={capturedImage} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-                <Loader2 size={36} className="text-white animate-spin" />
-                <p className="text-white font-bold text-lg">AI 正在分析...</p>
+                <div className="w-20 h-20 rounded-full bg-white/10 backdrop-blur flex items-center justify-center">
+                  <Loader2 size={36} className="text-white animate-spin" />
+                </div>
+                <p className="text-white font-bold text-lg">AI 正在识别食物...</p>
+                <p className="text-white/50 text-sm">可能需要几秒钟</p>
               </div>
             </div>
           )}
 
           {/* RESULT */}
-          {cameraState === 'result' && result && capturedImage && (
+          {cameraState === 'result' && analysis && capturedImage && (
             <div className="w-full max-w-sm mx-auto px-6 pb-10">
               <img src={capturedImage} alt=""
                 className="w-full h-40 rounded-2xl object-cover mb-5 shadow-lg" />
 
               <div className="bg-white rounded-2xl p-6 shadow-lg">
                 <div className="flex items-center gap-2 mb-4">
-                  <Sparkles size={18} className="text-primary fill-current" />
-                  <span className="text-sm font-bold text-primary">AI 估算结果</span>
+                  <Zap size={18} className="text-primary fill-current" />
+                  <span className="text-sm font-bold text-primary">AI 识别结果</span>
                 </div>
-                <h3 className="text-xl font-bold text-on-surface mb-4">{result.name}</h3>
-                {result.weight && <p className="text-xs text-on-surface-variant mb-3">{result.weight}</p>}
+                <h3 className="text-xl font-bold text-on-surface mb-4">{analysis.name}</h3>
+                {analysis.weight && <p className="text-xs text-on-surface-variant mb-3">{analysis.weight}</p>}
 
                 <div className="grid grid-cols-4 gap-2 mb-6">
                   {[
-                    { label: '热量', value: result.calories, unit: 'kcal' },
-                    { label: '碳水', value: `${result.carbs}g` },
-                    { label: '蛋白', value: `${result.protein}g` },
-                    { label: '脂肪', value: `${result.fat}g` },
+                    { label: '热量', value: analysis.calories, unit: 'kcal' },
+                    { label: '碳水', value: `${analysis.carbs}g` },
+                    { label: '蛋白', value: `${analysis.protein}g` },
+                    { label: '脂肪', value: `${analysis.fat}g` },
                   ].map((s, i) => (
                     <div key={i} className="bg-surface-container-low rounded-xl p-3 text-center">
                       <span className="text-xs text-on-surface-variant block mb-1">{s.label}</span>
@@ -245,11 +211,11 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
                 </div>
 
                 <div className="flex gap-3">
-                  <button onClick={() => { setResult(null); setDescription(''); setCameraState('describing'); }}
+                  <button onClick={() => { setAnalysis(null); startCamera(); }}
                     className="flex-1 py-3 rounded-full bg-surface-container-highest text-on-surface-variant font-medium hover:bg-surface-container-high flex items-center justify-center gap-2">
-                    <RefreshCw size={16} />重新估算
+                    <RefreshCw size={16} />重新拍照
                   </button>
-                  <button onClick={confirm} disabled={!result.calories}
+                  <button onClick={confirm} disabled={!analysis.calories}
                     className="flex-1 py-3 rounded-full bg-primary text-white font-bold hover:opacity-90 disabled:opacity-30 flex items-center justify-center gap-2 shadow-sm">
                     <Check size={18} />确认添加
                   </button>
@@ -269,7 +235,7 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
               <div className="flex gap-3">
                 <button onClick={() => onClose()}
                   className="px-6 py-3 rounded-full bg-white/10 text-white font-medium hover:bg-white/20">关闭</button>
-                <button onClick={() => { setResult(null); setDescription(''); startCamera(); }}
+                <button onClick={() => { setAnalysis(null); startCamera(); }}
                   className="px-6 py-3 rounded-full bg-white text-black font-bold hover:bg-white/90 active:scale-95">重试</button>
               </div>
             </div>
