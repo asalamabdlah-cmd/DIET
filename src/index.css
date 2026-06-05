@@ -3,42 +3,47 @@
 @theme {
   --font-sans: "Inter", "Public Sans", "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
   --font-headline: "Public Sans", sans-serif;
-  
-  --color-primary: #43664d;
+
+  /* ── Warm Primary: Terracotta ── */
+  --color-primary: #C4704F;
   --color-on-primary: #ffffff;
-  --color-primary-container: #84a98c;
-  --color-on-primary-container: #1c3e27;
-  --color-primary-fixed: #c5eccc;
-  --color-on-primary-fixed: #00210e;
-  
-  --color-secondary: #755844;
+  --color-primary-container: #FFDBCB;
+  --color-on-primary-container: #3F1E0E;
+  --color-primary-fixed: #FFDBCB;
+  --color-on-primary-fixed: #3F1E0E;
+
+  /* ── Warm Secondary: Golden Olive ── */
+  --color-secondary: #8B7D4E;
   --color-on-secondary: #ffffff;
-  --color-secondary-container: #ffd8be;
-  --color-on-secondary-container: #7a5d48;
-  --color-secondary-fixed: #ffdcc5;
-  
-  --color-tertiary: #426657;
+  --color-secondary-container: #FFE9B4;
+  --color-on-secondary-container: #4A3E10;
+  --color-secondary-fixed: #FFE9B4;
+
+  /* ── Warm Tertiary: Copper ── */
+  --color-tertiary: #9B6B4D;
   --color-on-tertiary: #ffffff;
-  --color-tertiary-container: #82a897;
-  --color-on-tertiary-container: #193d30;
-  
-  --color-background: #faf9f6;
-  --color-on-background: #1a1c1a;
-  
-  --color-surface: #faf9f6;
-  --color-on-surface: #1a1c1a;
-  --color-surface-variant: #e3e2e0;
-  --color-on-surface-variant: #424842;
-  
+  --color-tertiary-container: #FFD7C0;
+  --color-on-tertiary-container: #3E210E;
+
+  /* ── Background / Surface ── */
+  --color-background: #FDFAF5;
+  --color-on-background: #1E1814;
+
+  --color-surface: #FDFAF5;
+  --color-on-surface: #1E1814;
+  --color-surface-variant: #E8E0D4;
+  --color-on-surface-variant: #4E4640;
+
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f4f3f1;
-  --color-surface-container: #efeeeb;
-  --color-surface-container-high: #e9e8e5;
-  --color-surface-container-highest: #e3e2e0;
-  
-  --color-outline: #727972;
-  --color-outline-variant: #c2c8c0;
-  
+  --color-surface-container-low: #F7F3EC;
+  --color-surface-container: #F2EEE7;
+  --color-surface-container-high: #ECE8E1;
+  --color-surface-container-highest: #E8E0D4;
+
+  /* ── Outline ── */
+  --color-outline: #8A8078;
+  --color-outline-variant: #CEC4B8;
+
   --radius-lg: 2rem;
   --radius-xl: 3rem;
 }
@@ -50,9 +55,45 @@
 }
 
 .soft-shadow {
-  box-shadow: 0 8px 30px rgba(132, 169, 140, 0.08);
+  box-shadow: 0 8px 30px rgba(196, 112, 79, 0.06);
 }
 
 .nav-shadow {
-  box-shadow: 0 -4px 20px rgba(132, 169, 140, 0.08);
+  box-shadow: 0 -4px 20px rgba(196, 112, 79, 0.06);
+}
+
+/* ── Micro-interactions ── */
+@layer utilities {
+  /* Button press */
+  .btn-press {
+    @apply active:scale-[0.96] transition-transform duration-100;
+  }
+
+  /* Card hover lift */
+  .card-lift {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  /* Fade-in on scroll / appear */
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out both;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Skeleton pulse */
+  .skeleton-pulse {
+    @apply animate-pulse rounded-xl;
+    background: linear-gradient(90deg, var(--color-surface-container) 25%, var(--color-surface-container-high) 50%, var(--color-surface-container) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
 }

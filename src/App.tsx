@@ -15,7 +15,9 @@ import {
   loadExerciseRecords, addExerciseRecord as addExerciseToDb, updateExerciseRecord as updateExToDb, deleteExerciseRecord as deleteExFromDb,
   loadWeightRecords, addWeightRecord as addWeightToDb,
 } from './lib/supabaseService';
+import { motion, AnimatePresence } from 'motion/react';
 import { Leaf, LogOut } from 'lucide-react';
+import { CardSkeleton, ListSkeleton, StatsSkeleton } from './components/Skeleton';
 
 export default function App() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -168,11 +170,22 @@ export default function App() {
 
   if (dataLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-          <p className="text-sm text-on-surface-variant">加载数据中...</p>
-        </div>
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-surface-variant/20">
+          <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-primary/20 animate-pulse" />
+              <div className="h-5 w-20 rounded-lg skeleton-pulse" />
+            </div>
+          </div>
+        </header>
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+            <CardSkeleton />
+            <StatsSkeleton />
+            <ListSkeleton rows={4} />
+          </div>
+        </main>
       </div>
     );
   }
@@ -238,7 +251,17 @@ export default function App() {
 
         <main className="flex-1 overflow-y-auto">
           <div className="max-w-4xl mx-auto px-6 py-8">
-            {renderView()}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeView}
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -24 }}
+                transition={{ duration: 0.25, ease: 'easeInOut' }}
+              >
+                {renderView()}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </main>
       </div>

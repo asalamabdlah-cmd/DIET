@@ -17,8 +17,8 @@ export default defineConfig(({mode}) => {
           name: '轻盈助手 — 智能减脂管理',
           short_name: '轻盈助手',
           description: 'AI 驱动的智能健康减脂助手，饮食记录、运动推算、体重追踪',
-          theme_color: '#43664d',
-          background_color: '#faf9f6',
+          theme_color: '#C4704F',
+          background_color: '#FDFAF5',
           display: 'standalone',
           orientation: 'portrait',
           icons: [

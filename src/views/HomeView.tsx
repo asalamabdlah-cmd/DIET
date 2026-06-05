@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Utensils, Scale, Flame, Info, TrendingDown, TrendingUp, Minus, Sparkles } from "lucide-react";
 import type { DietRecord, ExerciseRecord, WeightRecord, UserProfile } from "../types";
 import { generateDietSuggestion, generateDailySummary } from "../services/geminiService";
+import { useCountUp } from "../hooks/useCountUp";
 
 interface HomeViewProps {
   profile: UserProfile;
@@ -52,6 +53,11 @@ export default function HomeView({ profile, dietRecords, exerciseRecords, weight
   const deficit = totalBudget - totalIntake;
   const progressPercent = Math.min((totalIntake / Math.max(totalBudget, 1)) * 100, 100);
 
+  // Animated numbers
+  const animatedRemaining = useCountUp(Math.max(0, remaining));
+  const animatedIntake = useCountUp(totalIntake);
+  const animatedBurned = useCountUp(totalBurned);
+
   // AI suggestion
   const [suggestion, setSuggestion] = useState("正在分析今日饮食...");
   const [suggestionLoading, setSuggestionLoading] = useState(false);
@@ -98,11 +104,7 @@ export default function HomeView({ profile, dietRecords, exerciseRecords, weight
   const tag = getGreetingTag();
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-8"
-    >
+    <div className="space-y-8">
       {/* Greeting */}
       <section className="mb-4">
         <h1 className="text-3xl font-bold text-on-surface mb-2">{greeting}，{profile.name}</h1>
@@ -121,13 +123,13 @@ export default function HomeView({ profile, dietRecords, exerciseRecords, weight
 
         <div className="relative w-56 h-56 rounded-full bg-surface-container flex items-center justify-center mb-8 shadow-inner">
           <div className="absolute inset-2 rounded-full bg-surface-container-lowest shadow-sm flex flex-col items-center justify-center">
-            <span className="text-5xl font-bold text-primary mb-1">{Math.max(0, remaining)}</span>
+            <span className="text-5xl font-bold text-primary mb-1">{animatedRemaining}</span>
             <span className="text-sm text-on-surface-variant font-medium">推荐 {profile.recommendedIntake}</span>
             <span className="text-xs text-on-surface-variant/60 mt-0.5">
               总消耗 {totalBudget} kcal
             </span>
             {totalBurned > 0 && (
-              <span className="text-xs text-green-600 font-medium">含运动 +{totalBurned} kcal</span>
+              <span className="text-xs text-green-600 font-medium">含运动 +{animatedBurned} kcal</span>
             )}
           </div>
 
@@ -167,7 +169,7 @@ export default function HomeView({ profile, dietRecords, exerciseRecords, weight
                 <Utensils size={14} />
                 <span className="text-xs font-medium">摄入</span>
               </div>
-              <p className="text-xl font-bold text-on-surface">{totalIntake}</p>
+              <p className="text-xl font-bold text-on-surface">{animatedIntake}</p>
               <p className="text-[10px] text-on-surface-variant">kcal</p>
             </div>
             <div className="bg-surface-container-lowest rounded-2xl p-4 soft-shadow">
@@ -175,7 +177,7 @@ export default function HomeView({ profile, dietRecords, exerciseRecords, weight
                 <ActivityIcon />
                 <span className="text-xs font-medium">消耗</span>
               </div>
-              <p className="text-xl font-bold text-on-surface">{totalBurned}</p>
+              <p className="text-xl font-bold text-on-surface">{animatedBurned}</p>
               <p className="text-[10px] text-on-surface-variant">kcal</p>
             </div>
           </div>
@@ -300,6 +302,6 @@ export default function HomeView({ profile, dietRecords, exerciseRecords, weight
           ))}
         </div>
       </section>
-    </motion.div>
+    </div>
   );
 }

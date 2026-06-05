@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Plus, Award, Info, Scale, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import type { WeightRecord, UserProfile } from "../types";
+import EmptyState from "../components/EmptyState";
 
 interface WeightViewProps {
   profile: UserProfile;
@@ -71,11 +72,7 @@ export default function WeightView({ profile, records, onAddRecord }: WeightView
   const remaining = profile.currentWeight - profile.targetWeight;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="space-y-8 pb-32"
-    >
+    <div className="space-y-8 pb-32">
       <div className="flex flex-col md:flex-row gap-6">
         {/* Current Weight */}
         <div className="bg-surface-container-lowest rounded-3xl p-8 soft-shadow flex-1 flex flex-col justify-between relative overflow-hidden group hover:-translate-y-1 transition-all duration-300">
@@ -170,25 +167,25 @@ export default function WeightView({ profile, records, onAddRecord }: WeightView
         </div>
 
         <div className="h-64 w-full">
-          {chartData.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-on-surface-variant text-sm">
-              还没有体重记录，输入体重开始追踪吧
+          {chartData.every(d => d.weight === null) ? (
+            <div className="h-full flex items-center justify-center">
+              <EmptyState icon={Scale} title="还没有体重记录" description="记录每日体重，追踪减脂趋势" />
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#43664d" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#43664d" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#C4704F" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#C4704F" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#efeeeb" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F2EEE7" />
                 <XAxis
                   dataKey="date"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#727972', fontSize: 12, fontWeight: 500 }}
+                  tick={{ fill: '#8A8078', fontSize: 12, fontWeight: 500 }}
                   dy={10}
                 />
                 <YAxis
@@ -199,14 +196,14 @@ export default function WeightView({ profile, records, onAddRecord }: WeightView
                   contentStyle={{
                     borderRadius: '16px',
                     border: 'none',
-                    boxShadow: '0 8px 30px rgba(132,169,140,0.1)',
+                    boxShadow: '0 8px 30px rgba(196,112,79,0.06)',
                     fontWeight: 'bold'
                   }}
                 />
                 <Area
                   type="monotone"
                   dataKey="weight"
-                  stroke="#43664d"
+                  stroke="#C4704F"
                   strokeWidth={3}
                   fillOpacity={1}
                   fill="url(#colorWeight)"
@@ -222,6 +219,6 @@ export default function WeightView({ profile, records, onAddRecord }: WeightView
           <p className="text-xs font-medium text-on-surface-variant">轻微波动是正常的，关注长期趋势即可</p>
         </div>
       </section>
-    </motion.div>
+    </div>
   );
 }

@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Clock, Activity, Sparkles, Loader2, AlertCircle, Zap, Pencil, Trash2, Check, X } from "lucide-react";
 import type { ExerciseRecord, UserProfile } from "../types";
 import { estimateExerciseCalories } from "../services/geminiService";
+import EmptyState from "../components/EmptyState";
 
 interface ExerciseViewProps {
   profile: UserProfile;
@@ -80,11 +81,7 @@ export default function ExerciseView({ profile, onAddRecord, onUpdateRecord, onD
   const todayTotal = todayRecords.reduce((sum, r) => sum + r.caloriesBurned, 0);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="space-y-8 pb-32"
-    >
+    <div className="space-y-8 pb-32">
       {/* Input */}
       <section className="bg-surface-container-lowest rounded-2xl p-6 shadow-md border border-surface-container/50 relative overflow-hidden">
         <div className="absolute -right-12 -top-12 w-40 h-40 bg-primary-fixed/20 rounded-full blur-3xl pointer-events-none" />
@@ -224,7 +221,7 @@ export default function ExerciseView({ profile, onAddRecord, onUpdateRecord, onD
         <h3 className="text-xl font-bold text-on-surface mb-6">运动记录</h3>
         <div className="space-y-2">
           {todayRecords.length === 0 ? (
-            <div className="text-center py-8 text-on-surface-variant">还没记录运动，快去活动一下吧</div>
+            <EmptyState icon={Activity} title="还没有运动记录" description="描述你的运动，DeepSeek 智能推算消耗热量" />
           ) : (
             todayRecords.map((record) => (
               <div key={record.id}>
@@ -297,6 +294,6 @@ export default function ExerciseView({ profile, onAddRecord, onUpdateRecord, onD
           )}
         </div>
       </section>
-    </motion.div>
+    </div>
   );
 }

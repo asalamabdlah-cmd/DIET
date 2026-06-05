@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sparkles, Plus, Coffee, Utensils, Moon, Candy, Loader2, ChefHat, Mic, MicOff, Pencil, Trash2, Check, X } from "lucide-react";
+import { Sparkles, Plus, Coffee, Utensils, Moon, Candy, Loader2, ChefHat, Mic, MicOff, Pencil, Trash2, Check, X, Camera } from "lucide-react";
 import { estimateFoodCalories, generateMealRecipe } from "../services/geminiService";
 import type { DietRecord, UserProfile } from "../types";
+import EmptyState from "../components/EmptyState";
+import CameraCapture from "../components/CameraCapture";
 
 interface DietViewProps {
   profile: UserProfile;
@@ -27,6 +29,7 @@ export default function DietView({ profile, onAddRecord, onUpdateRecord, onDelet
   const [prevRecipes, setPrevRecipes] = useState<string[]>([]);
   const [listening, setListening] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   // Edit state (strings to avoid number input 0-append bug)
@@ -163,11 +166,7 @@ export default function DietView({ profile, onAddRecord, onUpdateRecord, onDelet
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      className="space-y-8 pb-32"
-    >
+    <div className="space-y-8 pb-32">
       <div className="space-y-2">
         <h2 className="text-3xl font-bold text-on-surface">记录今日饮食</h2>
         <p className="text-lg text-on-surface-variant">告诉助手你吃的内容，AI 帮你轻松估算。</p>
@@ -200,8 +199,15 @@ export default function DietView({ profile, onAddRecord, onUpdateRecord, onDelet
                 className="w-full h-40 bg-surface-container rounded-2xl p-5 pr-14 text-lg text-on-surface border-none focus:ring-2 focus:ring-primary-fixed-dim placeholder:text-outline resize-none transition-shadow"
                 placeholder="今天吃了什么？例如：半碗米饭、红烧肉..."
               />
-              {/* Voice button */}
-              <div className="absolute bottom-4 right-4">
+              {/* Voice + Camera buttons */}
+              <div className="absolute bottom-4 right-4 flex gap-2">
+                <button
+                  onClick={() => setShowCamera(true)}
+                  className="w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all bg-surface-container-lowest text-on-surface-variant hover:text-primary"
+                  title="拍照识别食物"
+                >
+                  <Camera size={20} />
+                </button>
                 <button
                   onClick={listening ? stopListening : startListening}
                   className={`w-10 h-10 rounded-full shadow-sm flex items-center justify-center transition-all ${
@@ -418,7 +424,7 @@ export default function DietView({ profile, onAddRecord, onUpdateRecord, onDelet
 
         <div className="flex flex-col gap-4">
           {todayRecords.length === 0 ? (
-            <div className="text-center py-12 text-on-surface-variant italic">今天还没有记录哦，快来记一笔吧！</div>
+            <EmptyState icon={Utensils} title="今天还没有记录" description="记录你的饮食，AI 帮你轻松估算热量和营养" />
           ) : (
             todayRecords.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).map((record) => (
               <div key={record.id}>
@@ -491,6 +497,16 @@ export default function DietView({ profile, onAddRecord, onUpdateRecord, onDelet
           )}
         </div>
       </div>
-    </motion.div>
+      {/* ── Camera Food Recognition ── */}
+      {showCamera && (
+        <CameraCapture
+          onClose={() => setShowCamera(false)}
+          onResult={(food) => {
+            setEstimationResult(food);
+            setShowCamera(false);
+          }}
+        />
+      )}
+    </div>
   );
 }

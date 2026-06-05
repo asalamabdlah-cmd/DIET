@@ -127,11 +127,7 @@ export default function ProfileView({ profile, onUpdateProfile, onSignOut }: Pro
   const isEditing = (section: string) => editingSection === section;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="space-y-8 pb-32"
-    >
+    <div className="space-y-8 pb-32">
       {/* Header */}
       <section className="flex flex-col items-center mb-12">
         <label className="relative w-32 h-32 md:w-40 md:h-40 rounded-full bg-white soft-shadow mb-6 overflow-hidden border-4 border-surface ring-4 ring-primary/5 cursor-pointer group/avatar">
@@ -418,6 +414,6 @@ export default function ProfileView({ profile, onUpdateProfile, onSignOut }: Pro
         <LogOut size={18} />
         退出登录
       </button>
-    </motion.div>
+    </div>
   );
 }
