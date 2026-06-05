@@ -59,11 +59,15 @@ If no food is visible, return:
   // Try gemini-2.0-flash (more widely available) — append key as query param
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
 
+  console.log('[GeminiVision] 发送请求，图片大小:', (base64Data.length / 1024).toFixed(1), 'KB');
+
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(20000), // 20s timeout — small image, should be fast
   });
 
   if (!res.ok) {
