@@ -56,22 +56,27 @@ If no food is visible, return:
     },
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  // Try gemini-2.0-flash (more widely available) — append key as query param
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
 
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(30000), // 30s timeout
+    signal: AbortSignal.timeout(20000), // 20s timeout — small image, should be fast
   });
 
   if (!res.ok) {
-    const errText = await res.text();
-    console.error('[GeminiVision] API 错误:', res.status, errText);
-    if (res.status === 400) throw new Error('请求无效，请重试');
-    if (res.status === 403) throw new Error('API Key 无权限，请检查密钥');
-    if (res.status === 429) throw new Error('请求太频繁，请稍后再试');
-    throw new Error(`识别失败 (${res.status})`);
+    let errText = '';
+    try { errText = await res.text(); } catch {}
+    console.error('[GeminiVision] API 错误:', res.status, errText.slice(0, 200));
+    // Try to extract the actual error message from the response
+    let errMsg = errText;
+    try {
+      const errJson = JSON.parse(errText);
+      errMsg = errJson?.error?.message || errText;
+    } catch {}
+    throw new Error(`${errMsg}`);
   }
 
   const json = await res.json();

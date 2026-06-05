@@ -80,13 +80,16 @@ export default function CameraCapture({ onResult, onClose }: CameraCaptureProps)
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Resize to max 512px to keep payload small (~50KB base64)
+    const MAX = 512;
+    const scale = Math.min(MAX / video.videoWidth, MAX / video.videoHeight, 1);
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
     setCapturedImage(dataUrl);
 
     // Stop camera after capture
