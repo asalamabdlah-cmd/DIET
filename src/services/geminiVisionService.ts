@@ -37,6 +37,12 @@ export async function testGeminiKey(): Promise<string> {
 }
 
 // ── Image food recognition ──
+// Try multiple endpoints (main + China-friendly alias)
+const ENDPOINTS = [
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+  'https://generativelanguage-pa.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+];
+
 export async function analyzeFoodImage(
   base64Data: string,
   mimeType: string = 'image/jpeg',
@@ -60,37 +66,48 @@ If no food visible: { "name": "未识别", "calories": 0, "carbs": 0, "protein":
 
   console.log('[GeminiVision] 发送请求，图片:', (base64Data.length / 1024).toFixed(1), 'KB');
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
-      body: JSON.stringify(body),
-    },
-  );
+  // Try each endpoint
+  let lastError: Error | null = null;
+  for (const url of ENDPOINTS) {
+    try {
+      console.log('[GeminiVision] 尝试:', url.split('//')[1].split('/')[0]);
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15000),
+      });
 
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try { const j = await res.json(); msg = j?.error?.message || msg; } catch {}
-    throw new Error(msg);
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try { const j = await res.json(); msg = j?.error?.message || msg; } catch {}
+        throw new Error(msg);
+      }
+
+      const json = await res.json();
+      const text: string = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      console.log('[GeminiVision] 回复:', text.slice(0, 200));
+
+      if (!text) throw new Error('Gemini 未返回结果');
+
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('返回格式异常');
+
+      const result = JSON.parse(jsonMatch[0]);
+      return {
+        name: result.name || '未知食物',
+        calories: Math.round(result.calories) || 0,
+        carbs: Math.round(result.carbs) || 0,
+        protein: Math.round(result.protein) || 0,
+        fat: Math.round(result.fat) || 0,
+        weight: result.weight || '',
+      };
+    } catch (err: any) {
+      console.error('[GeminiVision] 端点失败:', err?.message);
+      lastError = err;
+      // continue to next endpoint
+    }
   }
 
-  const json = await res.json();
-  const text: string = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  console.log('[GeminiVision] 回复:', text.slice(0, 200));
-
-  if (!text) throw new Error('Gemini 未返回结果');
-
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error('返回格式异常');
-
-  const result = JSON.parse(jsonMatch[0]);
-  return {
-    name: result.name || '未知食物',
-    calories: Math.round(result.calories) || 0,
-    carbs: Math.round(result.carbs) || 0,
-    protein: Math.round(result.protein) || 0,
-    fat: Math.round(result.fat) || 0,
-    weight: result.weight || '',
-  };
+  throw new Error(lastError?.message || '无法连接到 Gemini 服务，请检查网络');
 }
